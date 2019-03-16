@@ -1,7 +1,8 @@
-# arcgis-js-api-4-elevation-profile
+# ArcGIS JavaScript API 4.7 Elevation Profile
 
 This code is built for ArcGIS API 4.7 to show Elevation Profile with the map component. 
 
+[View It live](http://jugrafiya.000webhostapp.com/)
 
 ## Key Components
 
