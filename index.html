@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>Draw polyline - 4.10</title>
+
+  <script src="js/chart.min.js"></script>
+  <script src="https://www.chartjs.org/samples/latest/utils.js"></script>
+
+  <link rel="stylesheet" href="https://js.arcgis.com/4.7/esri/css/main.css">
+  <script src="https://js.arcgis.com/4.7/"></script>
+
+
+
+  <style>
+    html,
+    body,
+    #viewDiv {
+      height: 100%;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    #canvas
+    {
+      display: block;
+      background-color: aliceblue;
+    }
+
+    #chart-div
+    {
+      width: 100%;
+      margin-left: 4em;
+    }
+  </style>
+
+  <script>
+    require([
+      "esri/Map",
+      "esri/views/MapView",
+      "esri/views/2d/draw/Draw",
+      "esri/Graphic",
+      "esri/geometry/geometryEngine",
+      "esri/tasks/Geoprocessor",
+      "esri/tasks/support/FeatureSet"
+    ], function(
+      Map, MapView, Draw, Graphic, geometryEngine, Geoprocessor,FeatureSet
+    ) {
+      const map = new Map({
+        basemap: "gray"
+      });
+
+
+
+      const view = new MapView({
+        container: "viewDiv",
+        map: map,
+        zoom: 14,
+        center: [73.0479, 33.6844]
+      });
+
+      // add the button for the draw tool
+      view.ui.add("line-button", "top-left");
+      view.ui.add("chart-div", "bottom-left");
+
+      const draw = new Draw({
+        view: view
+      });
+
+      // draw polyline button
+      document.getElementById("line-button").onclick = function() {
+        view.graphics.removeAll();
+
+        // creates and returns an instance of PolyLineDrawAction
+        const action = draw.create("polyline");
+
+        // focus the view to activate keyboard shortcuts for sketching
+        view.focus();
+
+        // listen polylineDrawAction events to give immediate visual feedback
+        // to users as the line is being drawn on the view.
+        action.on(["vertex-add", "vertex-remove", "cursor-update", "redo",
+          "undo", "draw-complete"
+        ], updateVertices);
+
+        action.on(["draw-complete"
+      ], drawCommplete);
+      }
+
+      function drawCommplete(event)
+      {
+        console.log("Geometry is Completed")
+        gp = new Geoprocessor("https://elevation.arcgis.com/arcgis/rest/services/Tools/ElevationSync/GPServer/Profile");
+        // gp.setOutputSpatialReference({
+        //       wkid: 102100
+        //     });
+
+
+
+        const vertices = event.vertices;
+        const graphic = new Graphic({
+          geometry: {
+            type: "polyline",
+            paths: vertices,
+            spatialReference: view.spatialReference
+          },
+          symbol: {
+            type: "simple-line", // autocasts as new SimpleFillSymbol
+            color: [4, 90, 141],
+            width: 4,
+            cap: "round",
+            join: "round"
+          }
+        });
+
+        console.log(graphic)
+
+        // Creating feature set from the graphic layer
+
+        var features = [];
+        features.push(graphic);
+        var featureSet = new FeatureSet();
+        featureSet.features = features;
+
+        params = {
+          "InputLineFeatures" : featureSet,
+          "DEMResolution": 'FINEST',
+          "MaximumSampleDistance": 10.310196668292074,
+          "MaximumSampleDistanceUnits": "Meters",
+          "returnZ": true,
+          "returnM": true
+
+        }
+
+          gp.execute(params).then(function(e)
+        {
+          console.log(e)
+          generateGraphDetails(e.results[0].value.features[0].geometry.paths)
+        })
+
+
+      }
+      // Checks if the last vertex is making the line intersect itself.
+      function updateVertices(event) {
+        // create a polyline from returned vertices
+        const result = createGraphic(event);
+
+        // if the last vertex is making the line intersects itself,
+        // prevent the events from firing
+        if (result.selfIntersects) {
+          event.preventDefault();
+        }
+      }
+
+      // create a new graphic presenting the polyline that is being drawn on the view
+      function createGraphic(event) {
+        const vertices = event.vertices;
+        view.graphics.removeAll();
+
+        // a graphic representing the polyline that is being drawn
+        const graphic = new Graphic({
+          geometry: {
+            type: "polyline",
+            paths: vertices,
+            spatialReference: view.spatialReference
+          },
+          symbol: {
+            type: "simple-line", // autocasts as new SimpleFillSymbol
+            color: [4, 90, 141],
+            width: 4,
+            cap: "round",
+            join: "round"
+          }
+        });
+
+        // check if the polyline intersects itself.
+        const intersectingSegment = getIntersectingSegment(graphic.geometry);
+
+        // Add a new graphic for the intersecting segment.
+        if (intersectingSegment) {
+          view.graphics.addMany([graphic, intersectingSegment]);
+        }
+        // Just add the graphic representing the polyline if no intersection
+        else {
+          view.graphics.add(graphic);
+        }
+
+        // return intersectingSegment
+        return {
+          selfIntersects: intersectingSegment
+        }
+      }
+
+      // function that checks if the line intersects itself
+      function isSelfIntersecting(polyline) {
+        if (polyline.paths[0].length < 3) {
+          return false
+        }
+        const line = polyline.clone();
+
+        //get the last segment from the polyline that is being drawn
+        const lastSegment = getLastSegment(polyline);
+        line.removePoint(0, line.paths[0].length - 1);
+
+        // returns true if the line intersects itself, false otherwise
+        return geometryEngine.crosses(lastSegment, line);
+      }
+
+      // Checks if the line intersects itself. If yes, change the last
+      // segment's symbol giving a visual feedback to the user.
+      function getIntersectingSegment(polyline) {
+        if (isSelfIntersecting(polyline)) {
+          return new Graphic({
+            geometry: getLastSegment(polyline),
+            symbol: {
+              type: "simple-line", // autocasts as new SimpleLineSymbol
+              style: "short-dot",
+              width: 3.5,
+              color: "yellow"
+            }
+          });
+        }
+        return null;
+      }
+
+      // Get the last segment of the polyline that is being drawn
+      function getLastSegment(polyline) {
+        const line = polyline.clone();
+        const lastXYPoint = line.removePoint(0, line.paths[0].length - 1);
+        const existingLineFinalPoint = line.getPoint(0, line.paths[0].length -
+          1);
+
+        return {
+          type: "polyline",
+          spatialReference: view.spatialReference,
+          hasZ: false,
+          paths: [
+            [
+              [existingLineFinalPoint.x, existingLineFinalPoint.y],
+              [lastXYPoint.x, lastXYPoint.y]
+            ]
+          ]
+        };
+      }
+      function generateGraphDetails (in_data)
+      {
+        var elev_points= []
+        var elev_labels= []
+        for (var i=0; i < in_data[0].length ; i++ ) {
+            elev_points.push(in_data[0][i][2])
+            elev_labels.push(i)
+             // console.log(elev[0][i][2])
+
+        }
+        console.log(elev_points)
+
+        var xaxisindex= 0;
+      		var config = {
+      			type: 'line',
+      			data: {
+      				labels:elev_labels, //[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40],
+      				datasets: [{
+      					label: 'Elevation Profile Dataset',
+      					// borderColor: window.chartColors.red,
+      					// backgroundColor: "#595BB9",
+      					data: elev_points,  //[
+      								// 22,56,86,33,54,94,35,69,32,31,45,78,9,63,1,2,4,5,4,7,8,6,9,7,54,8,8,68,68,7,5,31,4,7,369,46,78,6,5,4
+      					//],
+      				}]
+      			},
+      			options: {
+              elements: { point: { radius: 0 } } ,
+      				responsive: true,
+      				title: {
+      					display: true,
+      					text: 'Elevation Profile'
+      				},
+      				tooltips: {
+      					mode: 'index',
+      				},
+      				hover: {
+      					mode: 'index'
+      				},
+      				scales: {
+      					xAxes: [{
+      						ticks: {
+      										 userCallback: function(item, index) {
+
+      											 if (index==0)
+      											 {
+      												 xaxisindex=0;
+      												 return index
+      											 }
+      												else if (!(index % 50))
+      												{
+      													return ++xaxisindex;
+      												}
+      										 },
+      										 autoSkip: false
+      									},
+      						scaleLabel: {
+      							display: true,
+      							labelString: ''
+      						}
+      					}],
+      					yAxes: [{
+      						stacked: true,
+                  ticks: {
+                                suggestedMin: 0,
+                                steps: 10,
+                                // stepValue: 5,
+                                min: Math.min.apply(null, elev_points)
+                            },
+      						scaleLabel: {
+      							display: true,
+      							labelString: 'Value'
+      						}
+      					}]
+      				}
+      			}
+      		};
+
+
+          var ctx = document.getElementById('canvas').getContext('2d');
+          window.myLine = new Chart(ctx, config);
+
+
+
+      }
+
+
+
+    });
+  </script>
+</head>
+
+<body>
+  <div id="viewDiv">
+    <div id="chart-div" style="width:100%;">
+      <canvas id="canvas" style="height: 15em; width: 85em;"></canvas>
+    </div>
+    <div id="line-button" class="esri-widget esri-widget--button esri-interactive"
+      title="Draw polyline">
+      <span class="esri-icon-polyline"></span>
+    </div>
+  </div>
+</body>
+
+</html>

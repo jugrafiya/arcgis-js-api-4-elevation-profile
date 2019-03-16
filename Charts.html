@@ -1,0 +1,96 @@
+
+<!doctype html>
+<html>
+
+<head>
+	<title>Line Chart</title>
+	<script src="js/chart.min.js"></script>
+	<script src="https://www.chartjs.org/samples/latest/utils.js"></script>
+	<style>
+		canvas {
+			-moz-user-select: none;
+			-webkit-user-select: none;
+			-ms-user-select: none;
+		}
+	</style>
+</head>
+
+<body>
+	<div style="width:75%;">
+		<canvas id="canvas"></canvas>
+	</div>
+	<br>
+	<br>
+
+	<script>
+	var xaxisindex= 0;
+		var config = {
+			type: 'line',
+			data: {
+				labels: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40],
+				datasets: [{
+					label: 'Elevation Profile Dataset',
+					// borderColor: window.chartColors.red,
+					backgroundColor: "#595BB9",
+					data: [
+								22,56,86,33,54,94,35,69,32,31,45,78,9,63,1,2,4,5,4,7,8,6,9,7,54,8,8,68,68,7,5,31,4,7,369,46,78,6,5,4
+					],
+				}]
+			},
+			options: {
+				responsive: true,
+				title: {
+					display: true,
+					text: 'Elevation Profile'
+				},
+				tooltips: {
+					mode: 'index',
+				},
+				hover: {
+					mode: 'index'
+				},
+				scales: {
+					xAxes: [{
+						ticks: {
+										 userCallback: function(item, index) {
+
+											 if (index==0)
+											 {
+												 xaxisindex=0;
+												 return index
+											 }
+												else if (!(index % 10))
+												{
+
+													return ++xaxisindex;
+												}
+										 },
+										 autoSkip: false
+									},
+						scaleLabel: {
+							display: true,
+							labelString: 'Month'
+						}
+					}],
+					yAxes: [{
+						stacked: true,
+						scaleLabel: {
+							display: true,
+							labelString: 'Value'
+						}
+					}]
+				}
+			}
+		};
+
+		window.onload = function() {
+
+			var ctx = document.getElementById('canvas').getContext('2d');
+			window.myLine = new Chart(ctx, config);
+		};
+
+
+	</script>
+</body>
+
+</html>
