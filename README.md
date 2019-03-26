@@ -1,8 +1,10 @@
 # ArcGIS JavaScript API 4.7 Elevation Profile
 
-This code is built for ArcGIS API 4.7 to show Elevation Profile with the map component. 
+As for now, there is no Elevation Profile widget available for ArcGIS JavaScript API 4.7 that was available in ArcGIS JavaScript API 3.27. So, I have written a code using ArcGIS API 4.7, to use the geoprocessor to get the elevation of the data and then using Chart.js JavaScript
+s charting library of show that data on the map.
 
-[View It live](http://jugrafiya.000webhostapp.com/)
+
+
 
 ## Key Components
 
@@ -15,7 +17,5 @@ This code is built for ArcGIS API 4.7 to show Elevation Profile with the map com
 4- Draw Line on the Map
 
 
-This is an alternative to Elevation Profile Widget that is available with ArcGIS JavaScript API 3.27. 
 
-
-
+Raise an issue, if you use this repository, to allow me refine/modify my code.
